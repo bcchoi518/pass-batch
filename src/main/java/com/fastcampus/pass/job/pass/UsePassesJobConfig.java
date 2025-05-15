@@ -33,15 +33,17 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.Future;
 
-// 이 클래스가 Spring 설정 파일임을 나타내는 어노테이션
+// UsePassesJobConfig 클래스는 예약 완료된 건에 대해 이용권 사용 처리를 수행하는 Spring Batch Job/Step을 설정하는 클래스입니다.
 @Configuration // Spring 설정 클래스임을 명시
 public class UsePassesJobConfig {
     // 한 번에 처리할 데이터 개수(청크 사이즈) 지정
     private final int CHUNK_SIZE = 10; // 청크 단위(한 번에 처리할 데이터 개수)
 
-    // Spring Batch에서 제공하는 Job/Step 빌더 팩토리 및 의존성 주입
+    // EntityManagerFactory: JPA의 EntityManager를 생성하는 팩토리, DB 접근에 사용
     private final EntityManagerFactory entityManagerFactory;
+    // PassRepository: 이용권 정보에 접근하는 JPA 레포지토리
     private final PassRepository passRepository;
+    // BookingRepository: 예약 정보에 접근하는 JPA 레포지토리
     private final BookingRepository bookingRepository;
 
     // 생성자에서 EntityManagerFactory, PassRepository, BookingRepository만 주입받음
@@ -51,50 +53,52 @@ public class UsePassesJobConfig {
         this.bookingRepository = bookingRepository;
     }
 
+    // 이용권 사용 Step을 생성하는 메서드
+    // JobRepository: 배치 잡의 메타데이터를 관리하는 객체
+    // PlatformTransactionManager: 트랜잭션 처리를 담당하는 객체
     @Bean
     public Step usePassesStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
         return new StepBuilder("usePassesStep", jobRepository)
-                .<BookingEntity, Future<BookingEntity>>chunk(CHUNK_SIZE, transactionManager)
-                .reader(usePassesItemReader())
-                .processor(usePassesAsyncItemProcessor())
-                .writer(usePassesAsyncItemWriter())
+                .<BookingEntity, Future<BookingEntity>>chunk(CHUNK_SIZE, transactionManager) // 비동기 처리를 위해 Future 타입 사용
+                .reader(usePassesItemReader()) // 예약 데이터 조회
+                .processor(usePassesAsyncItemProcessor()) // 비동기 처리
+                .writer(usePassesAsyncItemWriter()) // 비동기 저장
                 .build();
     }
 
+    // 이용권 사용 Job을 생성하는 메서드
+    // JobRepository: 배치 잡의 메타데이터를 관리하는 객체
+    // Step: 이용권 사용 Step
     @Bean
     public Job usePassesJob(JobRepository jobRepository, Step usePassesStep) {
         return new JobBuilder("usePassesJob", jobRepository)
-                .start(usePassesStep)
+                .start(usePassesStep) // 첫 Step으로 usePassesStep 지정
                 .build();
     }
 
     // 이용권 사용 대상 예약을 읽어오는 JPA Cursor ItemReader
     @Bean
     public JpaCursorItemReader<BookingEntity> usePassesItemReader() {
-        // JPA Cursor 방식으로 예약 데이터를 읽어옴
-        // 예약 상태가 COMPLETED이고, 이용권 미사용이며, 종료일시가 현재보다 이전인 예약만 조회
         return new JpaCursorItemReaderBuilder<BookingEntity>()
-                .name("usePassesItemReader")
-                .entityManagerFactory(entityManagerFactory)
-                .queryString("select b from BookingEntity b join fetch b.passEntity where b.status = :status and b.usedPass = false and b.endedAt < :endedAt")
-                .parameterValues(Map.of("status", BookingStatus.COMPLETED, "endedAt", LocalDateTime.now()))
+                .name("usePassesItemReader") // 리더 이름 지정
+                .entityManagerFactory(entityManagerFactory) // JPA EntityManagerFactory 설정
+                .queryString("select b from BookingEntity b join fetch b.passEntity where b.status = :status and b.usedPass = false and b.endedAt < :endedAt") // JPQL 쿼리
+                .parameterValues(Map.of("status", BookingStatus.COMPLETED, "endedAt", LocalDateTime.now())) // 파라미터 바인딩
                 .build();
     }
 
     // 비동기 ItemProcessor 설정
     @Bean
     public AsyncItemProcessor<BookingEntity, BookingEntity> usePassesAsyncItemProcessor() {
-        // 실제 처리 로직을 위임할 ItemProcessor와 비동기 실행을 위한 TaskExecutor 설정
-        AsyncItemProcessor<BookingEntity, BookingEntity> asyncItemProcessor = new AsyncItemProcessor<>();
+        AsyncItemProcessor<BookingEntity, BookingEntity> asyncItemProcessor = new AsyncItemProcessor<>(); // 비동기 ItemProcessor 생성
         asyncItemProcessor.setDelegate(usePassesItemProcessor()); // 실제 처리 로직 위임
-        asyncItemProcessor.setTaskExecutor(new SimpleAsyncTaskExecutor()); // 비동기 실행
+        asyncItemProcessor.setTaskExecutor(new SimpleAsyncTaskExecutor()); // 비동기 실행을 위한 TaskExecutor 설정
         return asyncItemProcessor;
     }
 
     // 이용권 사용 처리 ItemProcessor: 남은 횟수 차감, 사용 처리
     @Bean
     public ItemProcessor<BookingEntity, BookingEntity> usePassesItemProcessor() {
-        // 예약 엔티티에서 이용권 정보를 꺼내 남은 횟수를 1 차감하고, 사용 처리
         return bookingEntity -> {
             PassEntity passEntity = bookingEntity.getPassEntity(); // 예약에 연결된 이용권 정보 조회
             passEntity.setRemainingCount(passEntity.getRemainingCount() - 1); // 남은 횟수 차감
@@ -108,8 +112,7 @@ public class UsePassesJobConfig {
     // 비동기 ItemWriter 설정
     @Bean
     public AsyncItemWriter<BookingEntity> usePassesAsyncItemWriter() {
-        // 실제 저장 로직을 위임할 ItemWriter 설정
-        AsyncItemWriter<BookingEntity> asyncItemWriter = new AsyncItemWriter<>();
+        AsyncItemWriter<BookingEntity> asyncItemWriter = new AsyncItemWriter<>(); // 비동기 ItemWriter 생성
         asyncItemWriter.setDelegate(usePassesItemWriter()); // 실제 저장 로직 위임
         return asyncItemWriter;
     }
@@ -117,7 +120,6 @@ public class UsePassesJobConfig {
     // 이용권 사용 처리 결과를 DB에 반영하는 ItemWriter
     @Bean
     public ItemWriter<BookingEntity> usePassesItemWriter() {
-        // 예약 엔티티 리스트를 받아 DB에 남은 횟수, 사용 여부를 업데이트
         return bookingEntities -> {
             for(BookingEntity bookingEntity: bookingEntities) {
                 // 이용권 남은 횟수 업데이트
