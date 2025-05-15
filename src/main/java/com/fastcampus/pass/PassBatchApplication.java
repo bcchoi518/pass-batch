@@ -2,31 +2,37 @@ package com.fastcampus.pass;
 
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
-import org.springframework.batch.core.job.builder.JobBuilder;
-import org.springframework.batch.core.repository.JobRepository;
-import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
+import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-import org.springframework.transaction.PlatformTransactionManager;
 
 @SpringBootApplication
 public class PassBatchApplication {
 
-    @Bean
-    public Step passStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
-        return new StepBuilder("passStep", jobRepository)
-                .tasklet((contribution, chunkContext) -> {
-                    System.out.println("Execute PassStep");
-                    return RepeatStatus.FINISHED;
-                }, transactionManager).build();
+    private final JobBuilderFactory jobBuilderFactory;
+    private final StepBuilderFactory stepBuilderFactory;
+
+    public PassBatchApplication(JobBuilderFactory jobBuilderFactory, StepBuilderFactory stepBuilderFactory) {
+        this.jobBuilderFactory = jobBuilderFactory;
+        this.stepBuilderFactory = stepBuilderFactory;
     }
 
     @Bean
-    public Job passJob(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
-        return new JobBuilder("passJob", jobRepository)
-                .start(passStep(jobRepository, transactionManager))
+    public Step passStep() {
+        return this.stepBuilderFactory.get("passStep")
+                .tasklet((contribution, chunkContext) -> {
+                    System.out.println("Execute PassStep");
+                    return RepeatStatus.FINISHED;
+                }).build();
+    }
+
+    @Bean
+    public Job passJob() {
+        return this.jobBuilderFactory.get("passJob")
+                .start(passStep())
                 .build();
     }
 

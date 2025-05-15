@@ -1,6 +1,7 @@
 package com.fastcampus.pass.repository.packaze;
 
-import com.fastcampus.pass.PassBatchApplication;
+import com.fastcampus.pass.repository.packaze.PackageEntity;
+import com.fastcampus.pass.repository.packaze.PackageRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,31 +10,33 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.util.List;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@Slf4j
-@SpringBootTest(classes = PassBatchApplication.class)
-@ActiveProfiles("tests")
-public class PackageRepositoryTest {
+//@DataJpaTest
 
+@Slf4j
+@SpringBootTest
+@ActiveProfiles("test")
+public class PackageRepositoryTest {
     @Autowired
     private PackageRepository packageRepository;
 
     @Test
     public void test_save() {
-        //given
+        // given
         PackageEntity packageEntity = new PackageEntity();
         packageEntity.setPackageName("바디 챌린지 PT 12주");
         packageEntity.setPeriod(84);
 
-        //when
+        // when
         packageRepository.save(packageEntity);
 
-        //then
+        // then
         assertNotNull(packageEntity.getPackageSeq());
+
     }
 
     @Test
@@ -57,6 +60,7 @@ public class PackageRepositoryTest {
         // then
         assertEquals(1, packageEntities.size());
         assertEquals(packageEntity1.getPackageSeq(), packageEntities.get(0).getPackageSeq());
+
     }
 
     @Test
@@ -75,6 +79,7 @@ public class PackageRepositoryTest {
         assertEquals(1, updatedCount);
         assertEquals(30, updatedPackageEntity.getCount());
         assertEquals(120, updatedPackageEntity.getPeriod());
+
     }
 
     @Test
@@ -90,5 +95,6 @@ public class PackageRepositoryTest {
 
         // then
         assertTrue(packageRepository.findById(newPackageEntity.getPackageSeq()).isEmpty());
+
     }
 }

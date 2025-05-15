@@ -2,7 +2,6 @@ package com.fastcampus.pass.job.pass;
 
 import com.fastcampus.pass.repository.pass.PassEntity;
 import com.fastcampus.pass.repository.pass.PassStatus;
-import jakarta.persistence.EntityManagerFactory;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
@@ -16,6 +15,7 @@ import org.springframework.batch.item.database.builder.JpaItemWriterBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import javax.persistence.EntityManagerFactory;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -31,7 +31,7 @@ public class ExpirePassesJobConfig {
     public ExpirePassesJobConfig(JobBuilderFactory jobBuilderFactory, StepBuilderFactory stepBuilderFactory, EntityManagerFactory entityManagerFactory) {
         this.jobBuilderFactory = jobBuilderFactory;
         this.stepBuilderFactory = stepBuilderFactory;
-        this.entityManagerFactory = entityManagerFactory;
+        this.entityManagerFactory  = entityManagerFactory;
     }
 
     @Bean
@@ -39,6 +39,7 @@ public class ExpirePassesJobConfig {
         return this.jobBuilderFactory.get("expirePassesJob")
                 .start(expirePassesStep())
                 .build();
+
     }
 
     @Bean
@@ -49,10 +50,11 @@ public class ExpirePassesJobConfig {
                 .processor(expirePassesItemProcessor())
                 .writer(expirePassesItemWriter())
                 .build();
+
     }
 
     /**
-     * JpaCousorItemReader: JpaPagingItemReader만 지원하다가 Spring 4.3에서 추가되었습니다.
+     * JpaCursorItemReader: JpaPagingItemReader만 지원하다가 Spring 4.3에서 추가되었습니다.
      * 페이징 기법보다 보다 높은 성능으로, 데이터 변경에 무관한 무결성 조회가 가능합니다.
      */
     @Bean
@@ -64,6 +66,7 @@ public class ExpirePassesJobConfig {
                 .queryString("select p from PassEntity p where p.status = :status and p.endedAt <= :endedAt")
                 .parameterValues(Map.of("status", PassStatus.PROGRESSED, "endedAt", LocalDateTime.now()))
                 .build();
+
     }
 
     @Bean
@@ -73,15 +76,18 @@ public class ExpirePassesJobConfig {
             passEntity.setExpiredAt(LocalDateTime.now());
             return passEntity;
         };
+
     }
 
     /**
-     * JapItemWriter: JPA의 영속성 관리를 위해 EntityManager를 필수로 설정해줘야 합니다.
+     * JpaItemWriter: JPA의 영속성 관리를 위해 EntityManager를 필수로 설정해줘야 합니다.
      */
     @Bean
     public JpaItemWriter<PassEntity> expirePassesItemWriter() {
         return new JpaItemWriterBuilder<PassEntity>()
                 .entityManagerFactory(entityManagerFactory)
                 .build();
+
     }
+
 }
