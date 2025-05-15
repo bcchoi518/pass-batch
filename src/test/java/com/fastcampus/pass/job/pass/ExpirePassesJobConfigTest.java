@@ -1,3 +1,4 @@
+// 이 클래스는 ExpirePassesJobConfig의 만료 처리 배치 잡을 테스트하는 JUnit 테스트 클래스입니다.
 package com.fastcampus.pass.job.pass;
 
 import com.fastcampus.pass.config.TestBatchConfig;
@@ -23,33 +24,34 @@ import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@Slf4j
-@SpringBatchTest
-@SpringBootTest
-@ActiveProfiles("test")
-@ContextConfiguration(classes = {ExpirePassesJobConfig.class, TestBatchConfig.class})
+@Slf4j // 로그 출력을 위한 Lombok 어노테이션입니다.
+@SpringBatchTest // Spring Batch 테스트를 위한 어노테이션입니다.
+@SpringBootTest // Spring Boot 환경에서 테스트를 실행합니다.
+@ActiveProfiles("test") // 테스트용 프로파일을 사용합니다.
+@ContextConfiguration(classes = {ExpirePassesJobConfig.class, TestBatchConfig.class}) // 테스트에 필요한 설정 클래스를 지정합니다.
 public class ExpirePassesJobConfigTest {
-    @Autowired
+    @Autowired // JobLauncherTestUtils 빈을 주입받습니다.
     private JobLauncherTestUtils jobLauncherTestUtils;
 
-    @Autowired
+    @Autowired // PassRepository 빈을 주입받습니다.
     private PassRepository passRepository;
 
-    @Test
+    @Test // 만료 처리 Step의 동작을 검증하는 테스트입니다.
     public void test_expirePassesStep() throws Exception {
-        // given
+        // given: 만료 대상 PassEntity를 여러 개 추가합니다.
         addPassEntities(10);
 
-        // when
+        // when: 배치 잡을 실행합니다.
         JobExecution jobExecution = jobLauncherTestUtils.launchJob();
         JobInstance jobInstance = jobExecution.getJobInstance();
 
-        // then
+        // then: 잡 실행 결과와 잡 이름이 기대와 일치하는지 확인합니다.
         assertEquals(ExitStatus.COMPLETED, jobExecution.getExitStatus());
         assertEquals("expirePassesJob", jobInstance.getJobName());
 
     }
 
+    // 테스트용 PassEntity를 여러 개 추가하는 메서드입니다.
     private void addPassEntities(int size) {
         final LocalDateTime now = LocalDateTime.now();
         final Random random = new Random();

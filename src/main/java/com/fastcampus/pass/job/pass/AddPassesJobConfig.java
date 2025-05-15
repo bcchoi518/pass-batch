@@ -1,40 +1,33 @@
 package com.fastcampus.pass.job.pass;
 
+// Spring Batch 관련 import
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
-import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
-import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.repository.JobRepository;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.batch.core.JobBuilder;
+import org.springframework.batch.core.StepBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+// 이 클래스가 Spring 설정 파일임을 나타내는 어노테이션
 @Configuration
 public class AddPassesJobConfig {
-    // @EnableBatchProcessing로 인해 Bean으로 제공된 JobBuilderFactory, StepBuilderFactory
-    private final JobBuilderFactory jobBuilderFactory;
-    private final StepBuilderFactory stepBuilderFactory;
-    private final AddPassesTasklet addPassesTasklet;
+    // 생성자에서 JobRepository, PlatformTransactionManager, AddPassesTasklet을 주입받음
+    public AddPassesJobConfig() {}
 
-    public AddPassesJobConfig(JobBuilderFactory jobBuilderFactory, StepBuilderFactory stepBuilderFactory, AddPassesTasklet addPassesTasklet) {
-        this.jobBuilderFactory = jobBuilderFactory;
-        this.stepBuilderFactory = stepBuilderFactory;
-        this.addPassesTasklet = addPassesTasklet;
+    @Bean
+    public Step addPassesStep(JobRepository jobRepository, PlatformTransactionManager transactionManager, AddPassesTasklet addPassesTasklet) {
+        return new StepBuilder("addPassesStep", jobRepository)
+                .tasklet(addPassesTasklet, transactionManager)
+                .build();
     }
 
     @Bean
-    public Job addPassesJob() {
-        return this.jobBuilderFactory.get("addPassesJob")
-                .start(addPassesStep())
+    public Job addPassesJob(JobRepository jobRepository, Step addPassesStep) {
+        return new JobBuilder("addPassesJob", jobRepository)
+                .start(addPassesStep)
                 .build();
-
-    }
-
-
-    @Bean
-    public Step addPassesStep() {
-        return this.stepBuilderFactory.get("addPassesStep")
-                .tasklet(addPassesTasklet)
-                .build();
-
     }
 
 }
